@@ -535,3 +535,6 @@ def webhook(request):
         logger.warning("Only POST method accepted")
         return "error"
 
+
+def check_supermarkets(location):
+    return
