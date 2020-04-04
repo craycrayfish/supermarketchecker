@@ -1,3 +1,2 @@
 python-telegram-bot==11.1.0
-geopy
-google-cloud-datastore
+sqlalchemy

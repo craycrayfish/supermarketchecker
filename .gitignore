@@ -1,11 +1,1 @@
-/we-meet-bot-env/*
-/.idea/*
-
-# misc
-.DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-.vscode/settings.json
-__pycache__
+env.yml
