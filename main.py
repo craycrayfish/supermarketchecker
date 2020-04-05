@@ -1,6 +1,7 @@
 import os
 import telegram
 import sqlalchemy as db
+from datetime import datetime
 
 bot = telegram.Bot(token=os.environ["TELEGRAM_TOKEN"])
 
@@ -27,6 +28,28 @@ engine = db.create_engine(
     ),
     # ... Specify additional properties here.
 )
+response_format = ['Supermarket', 'Postcode', 'Size', 'Capacity', 'smid', \
+                     'Postal Area', 'Crowd Size', 'Last Updated', 'orderid', 'smid']
+
+def pretty_print(update, response):
+    '''Formats the response and output each entry as a message'''
+    for entry in response:
+        info = {i: j for i, j in zip(response_format, entry)}
+        if info['Crowd Size'] <= 1.0:
+            info['Status'] = '{}% full with no queue'\
+                             .format(int(info['Crowd Size'] * 100))
+        else:
+            info['Status'] = '{} people in queue'\
+                             .format((int((info['Crowd Size']-1) \
+                                         * int(info['Capacity']))))
+        update.message.reply_text('\n'.join([
+            '{} @ {}'.format(info['Supermarket'], info['Postcode']),
+            'Status: {}'.format(info['Status']),
+            'Capacity: {}'.format(info['Capacity']),
+            'Last Updated: {}'.format(info['Last Updated'].strftime('%H:%M %d-%b-%y')) 
+        ])
+        )
+    return 'ok'
 
 def load_table(table_name):
     metadata = db.MetaData()
@@ -34,36 +57,49 @@ def load_table(table_name):
     return table
 
 def find_supermarkets(post_area, table_name):
+    '''Query metadata table to get id and info of nearby supermarkets.'''
     metadata = load_table(table_name)
     nearby_sm = db.select([metadata])\
                   .where(metadata.columns.post_area == post_area)
     return nearby_sm
 
-def get_crowd_sizes(smIDs, table_name):
+def get_supermarkets_status(supermarkets, table_name):
+    '''Query status table to get crowd status and last updated.
+    params:
+    supermarkets list of supermarkets obtained from metadata table
+    table_name table to join with
+    '''
     status = load_table(table_name)
-    crowd_sizes = db.select([status.columns.smid, status.columns.crowd_size,\
-                             status.columns.time])\
-                    .where(status.columns.smid.in_(smIDs))
+    supermarkets = supermarkets.alias('supermarkets_info')
+    crowd_sizes = db.select([supermarkets, status])\
+                    .select_from(supermarkets.join(status, \
+                                supermarkets.columns.smid==status.columns.smid))
     return crowd_sizes
 
 def bot_help(update):
     update.message.reply_text('''
 Please use the /start command to start or restart the bot. \n
-Tell the bot your country and postcode to find out how crowded nearby supermarkets are.
+Tell the bot your country and postcode to find out how crowded nearby supermarkets are. Example: /find UK WC1N.
     ''')
     return 'ok'
 
 def bot_start(update):
-    update.message.reply_text('''Hi! Please /find [country] [postcode] to find out how crowded nearby supermarkets are''')
+    '''Activated when /start is entered. Gives instructions for searching crowd size.'''
+    update.message.reply_text('''Hi! Please enter /find [country] [post area] to find out how crowded nearby supermarkets are. Example: /find UK WC1N''')
     return 'ok'
 
 def find_crowd_sizes(update, connection):
+    '''Main function activated by /find [country] [post area] that queries database.'''
     reply = update.message.text.split(' ')
-    country = reply[1]
-    post_area = reply[2]
+    country = reply[1].upper()
+    post_area = str(reply[2]).upper()
     supermarkets = find_supermarkets(post_area, tables[country][0])
-    result = connection.execute(supermarkets)
-    update.message.reply_text(str(result))
+    supermarkets_sizes = get_supermarkets_status(supermarkets, tables[country][1])
+    result = connection.execute(supermarkets_sizes).fetchall()
+    if len(result) == 0:
+        update.message.reply_text('No supermarkets found near you. Try another postarea')
+    else:
+        pretty_print(update, result)
     return 'ok'
 
 def webhook(request):
@@ -78,9 +114,10 @@ def webhook(request):
                 bot_help(update)
                 return 'ok'
             if '/find' in update.message.text:
-                connection = engine.connect()
-                find_crowd_sizes(update, connection)
-
-        else:
-            bot.sendMessage(chat_id=chat_id, text=update.message.text)
-            return 'ok'
+                if len(update.message.text.split(' ')) != 3:
+                    update.message.reply_text('Unexpected format. Please check.')
+                else:
+                    connection = engine.connect()
+                    find_crowd_sizes(update, connection)
+        
+    return 'ok'
