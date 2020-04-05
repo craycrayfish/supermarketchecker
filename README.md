@@ -1,9 +1,14 @@
-# telegram-bot-on-gcp
-This Telegram bot is a Google Cloud function. It also uses Google Cloud Datastore. It shows how to use Telegram location services, keyboards, and more.
+# supermarket_checker_bot
+This Telegram bot is a Google Cloud function for reporting and checking the crowd levels at supermarkets. PostgreSQL on GCP is used as well.
 
-# Installation
-1. Create a telegram bot https://core.telegram.org/bots
-2. Deploy this bot to GCP using the gcloud tool (use --trigger-http type). https://cloud.google.com/functions/docs/deploying/filesystem
+# Deployment
+1. Install Google Cloud SDK.
+https://cloud.google.com/sdk/docs/downloads-interactive
+
+2. Deploy this bot to GCP using the gcloud tool. 
+<pre> gcloud functions deploy webhook --env-vars-file env.yml --runtime python37 --trigger-http --allow-unauthenticated </pre>
+
 3. Call the setWebHook method in the Bot API via the following url:
 https://api.telegram.org/bot{my_bot_token}/setWebhook?url={url_to_send_updates_to}.
-More info here https://core.telegram.org/bots/api#setwebhook
+
+Webhook has been set, do not need to re-set. Just run 2. to update bot.
