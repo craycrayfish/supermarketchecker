@@ -92,6 +92,9 @@ def find_crowd_sizes(update, connection):
     '''Main function activated by /find [country] [post area] that queries database.'''
     reply = update.message.text.split(' ')
     country = reply[1].upper()
+    if country not in list(tables):
+        update.message.reply_text('Country not supported. We currently support {}'.format(list(tables)))
+        return 'ok'
     post_area = str(reply[2]).upper()
     supermarkets = find_supermarkets(post_area, tables[country][0])
     supermarkets_sizes = get_supermarkets_status(supermarkets, tables[country][1])
